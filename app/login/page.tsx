@@ -33,6 +33,12 @@ export default function LoginPage() {
       // Store token and user data
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // Store token expiration time (if available)
+      if (data.expires_in) {
+        const expirationTime = Date.now() + data.expires_in * 1000;
+        localStorage.setItem('token_expires_at', expirationTime.toString());
+      }
 
       // Redirect to home or dashboard
       router.push('/');

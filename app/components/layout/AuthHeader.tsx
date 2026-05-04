@@ -3,12 +3,42 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+// Decode JWT and check expiration
+const isTokenExpired = (token: string | null): boolean => {
+  if (!token) return true;
+  
+  try {
+    // JWT payload is the second part of the token
+    const payload = token.split('.')[1];
+    const decoded = JSON.parse(atob(payload));
+    const currentTime = Date.now() / 1000;
+    
+    // If exp is not present, token doesn't expire
+    if (!decoded.exp) return false;
+    
+    return decoded.exp < currentTime;
+  } catch (e) {
+    return true; // Invalid token, treat as expired
+  }
+};
+
 export default function AuthHeader() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+    
+    // Check if token is expired
+    if (storedToken && isTokenExpired(storedToken)) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+    
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser));
