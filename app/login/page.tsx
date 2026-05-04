@@ -41,7 +41,7 @@ export default function LoginPage() {
       }
 
       // Redirect to home or dashboard
-      router.push('/');
+      router.push('/profile');
     } catch (err: any) {
       setError(err.message || 'An error occurred');
     } finally {

@@ -9,6 +9,9 @@ type Project = {
   project_name: string;
   created_at: string;
   updated_at: string;
+  content_json?: any;
+  html_content?: string;
+  css_content?: string;
 };
 
 type Template = {
@@ -160,6 +163,33 @@ export default function ProfilePage() {
     return `<div style="${bodyStyles}"><div style="${canvasStyles}">${components}</div></div>`;
   };
 
+  // Generate thumbnail HTML for projects
+  const generateProjectThumbnailHtml = (project: Project): string => {
+    // Prefer html_content if available
+    if (project.html_content) {
+      const bodyStyles = project.css_content
+        ? `margin:0;padding:0;${project.css_content}`
+        : 'margin:0;padding:0';
+      return `<div style="${bodyStyles}">${project.html_content}</div>`;
+    }
+
+    // Fall back to content_json (GrapeJS project data)
+    const cj = project.content_json;
+    if (!cj) return '';
+
+    // Try to extract components from GrapeJS project data structure
+    const pages = cj.pages || [];
+    if (pages.length > 0) {
+      const firstPage = pages[0];
+      const components = (firstPage.components || []).map(renderComponent).join('');
+      const styles = firstPage.styles || {};
+      const bodyStyles = Object.entries(styles).map(([k, v]) => `${k}:${v}`).join(';');
+      return `<div style="${bodyStyles}">${components}</div>`;
+    }
+
+    return '';
+  };
+
   // Inject HTML+CSS into iframe when preview opens
   useEffect(() => {
     if (previewTemplate && iframeRef.current) {
@@ -188,7 +218,8 @@ export default function ProfilePage() {
       
       if (response.ok) {
         const data = await response.json();
-        setProjects(data.data || data);
+        const projects = data.data || data;
+        setProjects(projects);
       }
     } catch (error) {
       console.error('Failed to fetch projects:', error);
@@ -238,8 +269,19 @@ export default function ProfilePage() {
   };
 
   const handleCreateNewProject = () => {
+    // Clear all GrapeJS and editor-related cache
     localStorage.removeItem('gjs-project');
-    router.push('/editor');
+    localStorage.removeItem('gjs-components');
+    localStorage.removeItem('gjs-styles');
+    localStorage.removeItem('gjs-project-data');
+    localStorage.removeItem('gjs-editor-state');
+    
+    // Clear any cached project/template params
+    sessionStorage.removeItem('project_id');
+    sessionStorage.removeItem('template_id');
+    
+    // Force full page reload to bypass Next.js router cache
+    window.location.href = '/editor';
   };
 
   if (loading) {
@@ -349,23 +391,32 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {projects.map((project) => (
                   <div key={project.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="h-40 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
+                    <div className="h-40 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden relative">
+                      <div className="w-full h-full p-4">
+                        <div
+                          className="w-full h-full overflow-hidden"
+                          dangerouslySetInnerHTML={{ __html: generateProjectThumbnailHtml(project) }}
+                        />
+                      </div>
+                      {/* Hover overlay with Edit button */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Link
+                          href={`/editor?project_id=${project.id}`}
+                          className="flex items-center gap-2 px-4 py-2 bg-white text-slate-900 text-sm font-semibold rounded-lg shadow-lg hover:bg-slate-50 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit
+                        </Link>
+                      </div>
                     </div>
                     <div className="p-5">
                       <h3 className="text-base font-semibold text-slate-900 mb-1">{project.project_name}</h3>
                       <p className="text-xs text-slate-500 mb-4">
                         Updated {new Date(project.updated_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}
                       </p>
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/editor?project_id=${project.id}`}
-                          className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors text-center"
-                        >
-                          Edit
-                        </Link>
+                      <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => handleDeleteProject(project.id)}
                           className="px-4 py-2 text-sm font-semibold text-slate-500 border border-slate-200 rounded-lg hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
