@@ -145,49 +145,42 @@ export default function ProfilePage() {
 </html>`;
   };
 
-  // Generate a compact HTML preview for thumbnails (without full HTML document)
-  const generateThumbnailHtml = (template: Template): string => {
+  // Build full HTML document for template thumbnail iframe
+  const buildTemplateThumbnailHtml = (template: Template): string => {
+    if (template.html_content) {
+      const css = template.css_content || '';
+      const bodyStyles = template.project_data?.styles?.body
+        ? Object.entries(template.project_data.styles.body).map(([k, v]) => `${k}:${v}`).join(';')
+        : 'margin:0;padding:0';
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>*{box-sizing:border-box}body{${bodyStyles}}${css}</style></head><body>${template.html_content}</body></html>`;
+    }
     const pd = template.project_data;
-    if (!pd) return '';
-
+    if (!pd) return '<html><body></body></html>';
     const bodyStyles = pd.styles?.body
       ? Object.entries(pd.styles.body).map(([k, v]) => `${k}:${v}`).join(';')
       : 'margin:0;padding:0';
-
     const canvasStyles = pd.canvas
       ? Object.entries(pd.canvas).map(([k, v]) => `${k}:${v}`).join(';')
       : '';
-
     const components = (pd.components || []).map(renderComponent).join('');
-
-    return `<div style="${bodyStyles}"><div style="${canvasStyles}">${components}</div></div>`;
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>*{box-sizing:border-box}body{${bodyStyles}}</style></head><body><div style="${canvasStyles}">${components}</div></body></html>`;
   };
 
-  // Generate thumbnail HTML for projects
-  const generateProjectThumbnailHtml = (project: Project): string => {
-    // Prefer html_content if available
+  // Build full HTML document for project thumbnail iframe
+  const buildProjectThumbnailHtml = (project: Project): string => {
     if (project.html_content) {
-      const bodyStyles = project.css_content
-        ? `margin:0;padding:0;${project.css_content}`
-        : 'margin:0;padding:0';
-      return `<div style="${bodyStyles}">${project.html_content}</div>`;
+      const css = project.css_content || '';
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>*{box-sizing:border-box}body{margin:0;padding:0}${css}</style></head><body>${project.html_content}</body></html>`;
     }
-
-    // Fall back to content_json (GrapeJS project data)
     const cj = project.content_json;
-    if (!cj) return '';
-
-    // Try to extract components from GrapeJS project data structure
+    if (!cj) return '<html><body></body></html>';
     const pages = cj.pages || [];
     if (pages.length > 0) {
       const firstPage = pages[0];
       const components = (firstPage.components || []).map(renderComponent).join('');
-      const styles = firstPage.styles || {};
-      const bodyStyles = Object.entries(styles).map(([k, v]) => `${k}:${v}`).join(';');
-      return `<div style="${bodyStyles}">${components}</div>`;
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>*{box-sizing:border-box}body{margin:0;padding:0}</style></head><body>${components}</body></html>`;
     }
-
-    return '';
+    return '<html><body></body></html>';
   };
 
   // Inject HTML+CSS into iframe when preview opens
@@ -390,31 +383,28 @@ export default function ProfilePage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {projects.map((project) => (
-                  <div key={project.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="h-40 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden relative">
-                      <div className="w-full h-full p-4">
-                        <div
-                          className="w-full h-full overflow-hidden"
-                          dangerouslySetInnerHTML={{ __html: generateProjectThumbnailHtml(project) }}
-                        />
-                      </div>
-                      {/* Hover overlay with Edit button */}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Link
-                          href={`/editor?project_id=${project.id}`}
-                          className="flex items-center gap-2 px-4 py-2 bg-white text-slate-900 text-sm font-semibold rounded-lg shadow-lg hover:bg-slate-50 transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Edit
-                        </Link>
-                      </div>
+                  <div key={project.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow group">
+                    <div className="h-40 bg-white overflow-hidden relative">
+                      <iframe
+                        srcDoc={buildProjectThumbnailHtml(project)}
+                        title={project.project_name}
+                        sandbox="allow-same-origin"
+                        scrolling="no"
+                        className="border-0 absolute top-0 left-0 pointer-events-none"
+                        style={{
+                          width: '1920px',
+                          height: '1080px',
+                          transformOrigin: 'top left',
+                          transform: `scale(${172 / 800})`,
+                        }}
+                      />
+                      {/* Hover overlay */}
+                      <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                     <div className="p-5">
                       <h3 className="text-base font-semibold text-slate-900 mb-1">{project.project_name}</h3>
                       <p className="text-xs text-slate-500 mb-4">
-                        Updated {new Date(project.updated_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        Last Updated {new Date(project.updated_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}
                       </p>
                       <div className="flex items-center justify-center gap-2">
                         <button
@@ -423,6 +413,15 @@ export default function ProfilePage() {
                         >
                           Delete
                         </button>
+                        <Link
+                          href={`/editor?project_id=${project.id}`}
+                          className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit
+                        </Link>
                       </div>
                     </div>
                   </div>
@@ -455,7 +454,7 @@ export default function ProfilePage() {
                 {templates.map((template) => (
                   <div key={template.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow group">
                     {/* Thumbnail / Preview area */}
-                    <div className="h-44 bg-gradient-to-br from-red-50 to-slate-100 overflow-hidden relative">
+                    <div className="h-44 bg-white overflow-hidden relative">
                       {template.thumbnail_url ? (
                         <img
                           src={template.thumbnail_url}
@@ -463,12 +462,19 @@ export default function ProfilePage() {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
-                        <div className="w-full h-full p-4">
-                          <div
-                            className="w-full h-full overflow-hidden"
-                            dangerouslySetInnerHTML={{ __html: generateThumbnailHtml(template) }}
-                          />
-                        </div>
+                        <iframe
+                          srcDoc={buildTemplateThumbnailHtml(template)}
+                          title={template.name}
+                          sandbox="allow-same-origin"
+                          scrolling="no"
+                          className="border-0 absolute top-0 left-0 pointer-events-none"
+                          style={{
+                            width: '1920px',
+                            height: '1080px',
+                            transformOrigin: 'top left',
+                            transform: `scale(${176 / 800})`,
+                          }}
+                        />
                       )}
                       {/* Hover overlay with Preview button */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
