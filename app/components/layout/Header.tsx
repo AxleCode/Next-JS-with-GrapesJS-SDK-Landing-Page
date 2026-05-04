@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import AuthHeader from './AuthHeader';
 
 export default function Header() {
   return (
@@ -18,12 +19,7 @@ export default function Header() {
             <Link href="#testimonials" className="px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">Testimonials</Link>
             <Link href="#contact" className="px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">Contact</Link>
           </nav>
-          <div className="flex items-center gap-2">
-            <Link href="#pricing" className="px-4 py-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg hover:border-red-300 hover:bg-red-50 transition-colors">Login</Link>
-            <Link href="#pricing" className="px-5 py-2.5 text-sm font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 border border-red-600 shadow-sm transition-all">
-              Subscribe Rp100.000
-            </Link>
-          </div>
+          <AuthHeader />
         </div>
       </div>
     </header>
