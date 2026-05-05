@@ -145,19 +145,29 @@ export default function EditorPage() {
         }
       }
 
-      // Determine endpoint based on user role and context
-      // If user is creator/admin and editing template → update template
-      // Otherwise → create new project
-      const endpoint = isCreator && templateId
-        ? `http://127.0.0.1:8000/api/templates/${templateId}`
-        : 'http://127.0.0.1:8000/api/projects';
+      // Determine endpoint based on context
+      // Priority: template update > project update > project create
+      let endpoint = '';
+      let method = 'POST';
 
-      const method = isCreator && templateId ? 'PUT' : 'POST';
+      if (isCreator && templateId && !projectId) {
+        // Creator editing template
+        endpoint = `http://127.0.0.1:8000/api/templates/${templateId}`;
+        method = 'PUT';
+      } else if (projectId) {
+        // Editing existing project
+        endpoint = `http://127.0.0.1:8000/api/projects/${projectId}`;
+        method = 'PUT';
+      } else {
+        // Creating new project
+        endpoint = 'http://127.0.0.1:8000/api/projects';
+        method = 'POST';
+      }
 
       const response = await fetch(endpoint, {
         method: method,
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(isCreator && templateId
+        body: JSON.stringify(isCreator && templateId && !projectId
           ? {
               name: projectName,
               project_data: contentJson,
@@ -176,9 +186,12 @@ export default function EditorPage() {
 
       if (response.ok) {
         const data = await response.json();
-        if (isCreator && templateId) {
+        if (isCreator && templateId && !projectId) {
           // Template editing - keep template_id in URL
           showToast('save-success', 'Template saved successfully!', ToastVariant.Success);
+        } else if (projectId) {
+          // Project updated - keep project_id in URL
+          showToast('save-success', 'Project saved successfully!', ToastVariant.Success);
         } else {
           // New project created - replace URL
           router.replace(`/editor?project_id=${data.id}`);
