@@ -29,6 +29,7 @@ type User = {
   name: string;
   email: string;
   subscription_status: 'free' | 'paid';
+  role: 'admin' | 'creator' | 'user';
 };
 
 type Tab = 'projects' | 'templates';
@@ -42,6 +43,7 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<Tab>('projects');
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [showManageTemplates, setShowManageTemplates] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -72,7 +74,10 @@ export default function ProfilePage() {
     }
 
     try {
-      setUser(JSON.parse(storedUser));
+      const userData = JSON.parse(storedUser);
+      setUser(userData);
+      // Check if user is creator or admin
+      setShowManageTemplates(userData.role === 'creator' || userData.role === 'admin');
       Promise.all([
         fetchProjects(storedToken),
         fetchTemplates(storedToken),
@@ -371,23 +376,33 @@ export default function ProfilePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-white rounded-xl border border-slate-200 p-1 w-fit">
-          <button
-            onClick={() => setActiveTab('projects')}
-            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${
-              activeTab === 'projects' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            My Projects ({projects.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('templates')}
-            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${
-              activeTab === 'templates' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Templates ({templates.length})
-          </button>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex gap-1 mb-4 sm:mb-0 bg-white rounded-xl border border-slate-200 p-1 w-fit">
+            <button
+              onClick={() => setActiveTab('projects')}
+              className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                activeTab === 'projects' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              My Projects ({projects.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('templates')}
+              className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                activeTab === 'templates' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Templates ({templates.length})
+            </button>
+          </div>
+          {showManageTemplates && (
+            <Link
+              href="/templates/manage"
+              className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-all"
+            >
+              Manage Templates
+            </Link>
+          )}
         </div>
 
         {/* Projects Tab */}

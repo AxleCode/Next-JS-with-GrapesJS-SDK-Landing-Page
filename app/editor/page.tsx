@@ -129,40 +129,66 @@ export default function EditorPage() {
     setSaving(true);
     try {
       const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
       const contentJson = editor.getProjectData();
       const html = editor.getHtml();
       const css = editor.getCss();
 
-      const endpoint = projectId
-        ? `http://127.0.0.1:8000/api/projects/${projectId}`
+      // Check if user is creator or admin
+      let isCreator = false;
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          isCreator = userData.role === 'creator' || userData.role === 'admin';
+        } catch (e) {
+          console.error('Failed to parse user data:', e);
+        }
+      }
+
+      // Determine endpoint based on user role and context
+      // If user is creator/admin and editing template → update template
+      // Otherwise → create new project
+      const endpoint = isCreator && templateId
+        ? `http://127.0.0.1:8000/api/templates/${templateId}`
         : 'http://127.0.0.1:8000/api/projects';
 
+      const method = isCreator && templateId ? 'PUT' : 'POST';
+
       const response = await fetch(endpoint, {
-        method: projectId ? 'PUT' : 'POST',
+        method: method,
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_name: projectName,
-          content_json: contentJson,
-          html_content: html,
-          css_content: css,
-          template_id: templateId ?? null,
-        }),
+        body: JSON.stringify(isCreator && templateId
+          ? {
+              name: projectName,
+              project_data: contentJson,
+              html_content: html,
+              css_content: css,
+            }
+          : {
+              project_name: projectName,
+              content_json: contentJson,
+              html_content: html,
+              css_content: css,
+              template_id: templateId ?? null,
+            }
+        ),
       });
 
       if (response.ok) {
         const data = await response.json();
-        if (!projectId) {
-          // Replace URL so back button works correctly
-          router.replace(`/editor?project_id=${data.id}`);
+        if (isCreator && templateId) {
+          // Template editing - keep template_id in URL
+          showToast('save-success', 'Template saved successfully!', ToastVariant.Success);
         } else {
-          showToast('save-success', 'Project saved successfully!', ToastVariant.Success);
+          // New project created - replace URL
+          router.replace(`/editor?project_id=${data.id}`);
         }
       } else {
-        showToast('save-error', 'Failed to save project', ToastVariant.Error);
+        showToast('save-error', 'Failed to save', ToastVariant.Error);
       }
     } catch (error) {
-      console.error('Failed to save project:', error);
-      showToast('save-error', 'Failed to save project', ToastVariant.Error);
+      console.error('Failed to save:', error);
+      showToast('save-error', 'Failed to save', ToastVariant.Error);
     } finally {
       setSaving(false);
     }
