@@ -88,46 +88,81 @@ export default function ProfilePage() {
   const renderComponent = (comp: any): string => {
     if (!comp) return '';
 
+    // Convert camelCase style keys to kebab-case CSS properties
     const styleStr = comp.style
-      ? Object.entries(comp.style).map(([k, v]) => `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}:${v}`).join(';')
+      ? Object.entries(comp.style)
+          .map(([k, v]) => `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}:${v}`)
+          .join(';')
       : '';
 
+    // Build attribute string from comp.attributes
+    const attrsStr = comp.attributes
+      ? Object.entries(comp.attributes)
+          .map(([k, v]) => `${k}="${String(v).replace(/"/g, '&quot;')}"`)
+          .join(' ')
+      : '';
+
+    const children = (comp.components || []).map(renderComponent).join('');
+    const content = comp.content || '';
+
     if (comp.type === 'text') {
-      return `<p style="${styleStr}">${comp.content || ''}</p>`;
+      // Inline text node — use a span so it inherits parent layout (flex, etc.)
+      return `<span style="${styleStr}">${content}${children}</span>`;
+    }
+    if (comp.type === 'link') {
+      const href = comp.attributes?.href || '#';
+      return `<a href="${href}" style="${styleStr}" ${attrsStr}>${content}${children}</a>`;
     }
     if (comp.type === 'button') {
-      return `<button style="${styleStr}">${comp.content || ''}</button>`;
+      return `<button style="${styleStr}" ${attrsStr}>${content}${children}</button>`;
     }
     if (comp.type === 'image') {
-      return `<img src="${comp.src || ''}" alt="${comp.alt || ''}" style="${styleStr}" />`;
+      return `<img src="${comp.src || comp.attributes?.src || ''}" alt="${comp.alt || comp.attributes?.alt || ''}" style="${styleStr}" ${attrsStr} />`;
+    }
+    if (comp.type === 'section') {
+      return `<section style="${styleStr}" ${attrsStr}>${content}${children}</section>`;
+    }
+    if (comp.type === 'header') {
+      return `<header style="${styleStr}" ${attrsStr}>${content}${children}</header>`;
+    }
+    if (comp.type === 'footer') {
+      return `<footer style="${styleStr}" ${attrsStr}>${content}${children}</footer>`;
+    }
+    if (comp.type === 'nav') {
+      return `<nav style="${styleStr}" ${attrsStr}>${content}${children}</nav>`;
     }
 
-    // container, section, div, or any other type with children
-    const tag = comp.type === 'section' ? 'section' : 'div';
-    const children = (comp.components || []).map(renderComponent).join('');
-    return `<${tag} style="${styleStr}">${children}</${tag}>`;
+    // Default: div (handles 'div', 'container', and any unknown types)
+    return `<div style="${styleStr}" ${attrsStr}>${content}${children}</div>`;
+  };
+
+  // Build CSS string from the styles map in project_data
+  const buildStylesBlock = (styles: Record<string, any> = {}): string => {
+    return Object.entries(styles)
+      .map(([selector, rules]) => {
+        const declarations = Object.entries(rules as Record<string, string>)
+          .map(([k, v]) => `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}:${v}`)
+          .join(';');
+        return `${selector}{${declarations}}`;
+      })
+      .join('\n');
   };
 
   const buildPreviewHtml = (template: Template): string => {
     // Prefer explicit html_content if available
     if (template.html_content) {
       const css = template.css_content || '';
-      const bodyStyles = template.project_data?.styles?.body
-        ? Object.entries(template.project_data.styles.body).map(([k, v]) => `${k}:${v}`).join(';')
-        : '';
-      return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>body{${bodyStyles}}${css}</style></head><body>${template.html_content}</body></html>`;
+      const stylesBlock = buildStylesBlock(template.project_data?.styles);
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>${stylesBlock}${css}</style></head><body>${template.html_content}</body></html>`;
     }
 
     // Fall back to rendering project_data component tree
     const pd = template.project_data;
     if (!pd) return '<p style="padding:2rem;color:#888">No preview available.</p>';
 
-    const bodyStyles = pd.styles?.body
-      ? Object.entries(pd.styles.body).map(([k, v]) => `${k}:${v}`).join(';')
-      : 'margin:0;padding:0';
-
+    const stylesBlock = buildStylesBlock(pd.styles);
     const canvasStyles = pd.canvas
-      ? Object.entries(pd.canvas).map(([k, v]) => `${k}:${v}`).join(';')
+      ? Object.entries(pd.canvas).map(([k, v]) => `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}:${v}`).join(';')
       : '';
 
     const components = (pd.components || []).map(renderComponent).join('');
@@ -137,7 +172,7 @@ export default function ProfilePage() {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <style>body{${bodyStyles}}</style>
+  <style>${stylesBlock}</style>
 </head>
 <body>
   <div style="${canvasStyles}">${components}</div>
@@ -149,21 +184,17 @@ export default function ProfilePage() {
   const buildTemplateThumbnailHtml = (template: Template): string => {
     if (template.html_content) {
       const css = template.css_content || '';
-      const bodyStyles = template.project_data?.styles?.body
-        ? Object.entries(template.project_data.styles.body).map(([k, v]) => `${k}:${v}`).join(';')
-        : 'margin:0;padding:0';
-      return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>*{box-sizing:border-box}body{${bodyStyles}}${css}</style></head><body>${template.html_content}</body></html>`;
+      const stylesBlock = buildStylesBlock(template.project_data?.styles);
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>${stylesBlock}${css}</style></head><body>${template.html_content}</body></html>`;
     }
     const pd = template.project_data;
     if (!pd) return '<html><body></body></html>';
-    const bodyStyles = pd.styles?.body
-      ? Object.entries(pd.styles.body).map(([k, v]) => `${k}:${v}`).join(';')
-      : 'margin:0;padding:0';
+    const stylesBlock = buildStylesBlock(pd.styles);
     const canvasStyles = pd.canvas
-      ? Object.entries(pd.canvas).map(([k, v]) => `${k}:${v}`).join(';')
+      ? Object.entries(pd.canvas).map(([k, v]) => `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}:${v}`).join(';')
       : '';
     const components = (pd.components || []).map(renderComponent).join('');
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>*{box-sizing:border-box}body{${bodyStyles}}</style></head><body><div style="${canvasStyles}">${components}</div></body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>${stylesBlock}</style></head><body><div style="${canvasStyles}">${components}</div></body></html>`;
   };
 
   // Build full HTML document for project thumbnail iframe
@@ -174,10 +205,16 @@ export default function ProfilePage() {
     }
     const cj = project.content_json;
     if (!cj) return '<html><body></body></html>';
+    // GrapeJS project format: pages[0].frames[0].component.components
     const pages = cj.pages || [];
     if (pages.length > 0) {
       const firstPage = pages[0];
-      const components = (firstPage.components || []).map(renderComponent).join('');
+      // Support both direct components array and GrapeJS frames structure
+      const frameComponents =
+        firstPage.frames?.[0]?.component?.components ||
+        firstPage.components ||
+        [];
+      const components = frameComponents.map(renderComponent).join('');
       return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><style>*{box-sizing:border-box}body{margin:0;padding:0}</style></head><body>${components}</body></html>`;
     }
     return '<html><body></body></html>';
