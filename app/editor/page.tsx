@@ -225,6 +225,14 @@ export default function EditorPage() {
           onReady={onReady}
           options={{
             licenseKey: 'YOUR_LICENSE_KEY',
+            storage: {
+              // Use 'self' type to take full control — disable auto browser caching
+              type: 'self',
+              autosaveChanges: 0,
+              autosaveIntervalMs: 0,
+              onLoad: async () => ({ project: {} as any }),
+              onSave: async () => {},
+            },
             project: {
               default: {
                 pages: [

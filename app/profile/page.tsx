@@ -262,17 +262,27 @@ export default function ProfilePage() {
   };
 
   const handleCreateNewProject = () => {
-    // Clear all GrapeJS and editor-related cache
-    localStorage.removeItem('gjs-project');
-    localStorage.removeItem('gjs-components');
-    localStorage.removeItem('gjs-styles');
-    localStorage.removeItem('gjs-project-data');
-    localStorage.removeItem('gjs-editor-state');
-    
-    // Clear any cached project/template params
-    sessionStorage.removeItem('project_id');
-    sessionStorage.removeItem('template_id');
-    
+    // Clear all GrapeJS and editor-related cache from localStorage
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('gjs-') ||
+        key.startsWith('gjsstudio-') ||
+        key.startsWith('grapes-') ||
+        key.includes('project') ||
+        key.includes('editor') ||
+        key.includes('canvas') ||
+        key.includes('template')
+      )) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+
+    // Also clear sessionStorage
+    sessionStorage.clear();
+
     // Force full page reload to bypass Next.js router cache
     window.location.href = '/editor';
   };
